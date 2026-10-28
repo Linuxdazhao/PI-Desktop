@@ -9553,6 +9553,8 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      refuses creation. Editing an existing global server never changes its
      owner merely because All and a project are selected. Renderer coverage:
      `apps/desktop/test/mcp-create-scope.test.mjs`.
+     Editor saves and market installs omit the legacy `scope` input; their
+     `level`/`projectPath` still select the owner and Host derives returned scope.
   10. Delete a skill or MCP file outside the app, reload its page, and confirm the
       row disappears and its local state has no orphaned entry. Confirm deleting
       a global file also removes its project overrides.

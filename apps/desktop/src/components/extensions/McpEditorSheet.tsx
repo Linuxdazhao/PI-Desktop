@@ -151,7 +151,6 @@ export function draftToInput(
     description: draft.description.trim() || undefined,
     ...timeoutInput,
     enabled: draft.enabled,
-    scope: draft.scope,
   };
   if (draft.transport === "http") {
     return {

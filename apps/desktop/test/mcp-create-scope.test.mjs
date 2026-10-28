@@ -107,8 +107,7 @@ for (const [filter, project, expected] of [
     assert.equal(actualLevel, expected);
     assert.equal(actualTooltip, tooltip);
     assert.equal(f.writes[0].projectPath, expected === "project" ? project : undefined);
-    assert.equal(f.writes[0].scope.mode, expected === "project" ? "projects" : "global");
-    if (expected === "project") assert.deepEqual(f.writes[0].scope.projects, [project]);
+    assert.equal(Object.hasOwn(f.writes[0], "scope"), false);
   });
 }
 

@@ -45,8 +45,7 @@ test("the rendered market action writes only to the selected existing MCP owner"
     assert.deepEqual(f.calls.map(row => row[0]), ["upsert"]);
     const value = f.calls[0][1]; assert.equal(value.level, level); assert.equal(value.command, "npx"); assert.equal(value.args[1], "@example/fixture@1.2.3"); assert.equal(value.env.TOKEN, "fixture-value");
     assert.equal(value.projectPath, level === "project" ? "/project-a" : undefined);
-    assert.equal(value.scope.mode, level === "project" ? "projects" : "global");
-    if (level === "project") assert.equal(value.scope.projects[0], "/project-a");
+    assert.equal(Object.hasOwn(value, "scope"), false);
     assert.deepEqual(f.installed, ["fixture"]);
   }
 });

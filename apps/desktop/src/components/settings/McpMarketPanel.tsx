@@ -5,7 +5,6 @@ import {
   allowInsecureUserEndpoints,
   BUILTIN_MCP_CATALOG,
   DEFAULT_MARKET_SOURCE,
-  GLOBAL_SCOPE,
   isSafeMarketSourceUrl,
   mergeRegistryEntries,
   resolveCatalogEntry,
@@ -302,7 +301,6 @@ export function McpMarketPanel({
         ...input,
         level,
         ...(level === "project" ? { projectPath } : {}),
-        scope: level === "global" ? GLOBAL_SCOPE : { mode: "projects", projects: [projectPath!] },
       });
       showToast(t("settings.mcpMarket.installSuccess", { name: installFor.name }), {
         variant: "success",

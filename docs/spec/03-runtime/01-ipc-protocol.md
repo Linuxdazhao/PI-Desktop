@@ -1564,6 +1564,11 @@ application-local `<data>/agent-capabilities/mcp.json` state file.
 - `mcp.setScope` remains a compatibility-shaped call; the Settings page uses
   the explicit capability level and local state instead
 
+Desktop editor saves and market installs send `level` and, for project-owned
+definitions, `projectPath`; they omit the legacy `scope` input. Host-core still
+accepts that optional field for compatibility and derives each returned
+record's scope from its level and owning project.
+
 A project-level request without `projectPath` is invalid. `mcp.active` removes
 project records from the global set by id or case-insensitive label before it
 filters disabled records, so a disabled project record still shadows a global

@@ -16,7 +16,6 @@ test("market panel installs through the existing upsert path only", () => {
   assert.match(panel, /resolveCatalogEntry\(/);
   assert.match(panel, /api\.upsertMcpServer\(/);
   assert.match(panel, /level,/);
-  assert.match(panel, /scope: level === "global" \? GLOBAL_SCOPE/);
   // No other write path may appear.
   assert.doesNotMatch(panel, /mcpImport|writeFile|host\.call\(/);
 });
