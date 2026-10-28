@@ -683,11 +683,13 @@ system while preserving their different data ownership:
   offering it to `Task`. Reveal and delete remain absent because a builtin is
   not a file.
 - The level filter narrows which groups the panel renders; it never hides the
-  toolbar or moves the actions. New capabilities are created at the level the
-  filter points at — Global under All or Global, Project under Project — and
-  the primary action's tooltip names that destination so the choice is never
-  implicit. Choosing Project without a selected project reports that instead
-  of failing silently.
+  toolbar or moves the actions. Explicit Global and Project filters choose the
+  corresponding destination. Under All, MCP creation, inline import and market
+  installation default to the selected project, falling back to Global only
+  when no project is selected; Skills retain their Global default under All.
+  The primary action's tooltip and MCP editor name that destination. Choosing
+  Project without a selected project reports that instead of saving globally.
+  Editing an existing definition retains its owner regardless of the filter.
 - Inside the panel, each level is a group header row — level name, resolved
   `.agents` path in mono, localized count — followed by its rows. Lists flow
   at natural page height like every other Settings surface; the page scrolls

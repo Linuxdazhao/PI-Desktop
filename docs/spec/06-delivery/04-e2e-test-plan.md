@@ -9545,6 +9545,14 @@ must keep splitting are covered by `markdown-blocks.test.mjs`.
      label, and reports ready or failed through the row badge and a toast.
      Delete a server through the same two-press menu action and confirm its file
      is gone.
+     With All selected and project A chosen, create a server and verify the
+     action tooltip, editor destination and saved file all name project A.
+     Select project B and repeat creation, inline import and market install;
+     each targets B. Explicit Global still writes globally, All without a
+     selected project defaults to Global, and Project without a selection
+     refuses creation. Editing an existing global server never changes its
+     owner merely because All and a project are selected. Renderer coverage:
+     `apps/desktop/test/mcp-create-scope.test.mjs`.
   10. Delete a skill or MCP file outside the app, reload its page, and confirm the
       row disappears and its local state has no orphaned entry. Confirm deleting
       a global file also removes its project overrides.

@@ -149,8 +149,9 @@ export function AgentMcpPage() {
     }));
   };
 
-  /** New servers land at whichever level the filter is pointing at. */
-  const targetLevel: AgentCapabilityLevel = filter === "project" ? "project" : "global";
+  /** Explicit filters choose the owner; All follows the selected project. */
+  const targetLevel: AgentCapabilityLevel =
+    filter === "project" || (filter === "all" && selectedProjectPath) ? "project" : "global";
 
   const openCreate = () => {
     if (targetLevel === "project" && !selectedProjectPath) {
@@ -613,6 +614,7 @@ export function AgentMcpPage() {
 
   const marketButton = (
     <CapabilityButton
+      disabled={targetLevel === "project" && !selectedProjectPath}
       onClick={() => setView("market")}
     >
       <IconServer size={14} />
@@ -623,7 +625,9 @@ export function AgentMcpPage() {
   if (view === "market") {
     return (
       <McpMarketPanel
-        installedIds={[...globalServers, ...projectServers].map((server) => server.id)}
+        level={targetLevel}
+        projectPath={targetLevel === "project" ? selectedProjectPath ?? undefined : undefined}
+        installedIds={(targetLevel === "project" ? projectServers : globalServers).map((server) => server.id)}
         onBack={() => {
           setView("servers");
           void load();
