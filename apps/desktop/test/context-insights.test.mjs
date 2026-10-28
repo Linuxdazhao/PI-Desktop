@@ -56,6 +56,18 @@ test("legacy and malformed records remain unavailable instead of inventing a sys
   assert.equal(groups[2].items.length, 1);
 });
 
+test("the estimate weights CJK characters as tokens instead of quarters of one", () => {
+  const groups = contextHistoryGroups([
+    message("chinese", "user", { content: "上下文窗口的占用情况" }),
+    message("ascii", "user", { content: "abcdefgh" }),
+    message("mixed", "user", { content: "中文abcd" }),
+  ]);
+  const user = groups.find(group => group.category === "user");
+  // One token per CJK character, a quarter per other character: a flat
+  // length/4 estimate would report the ten-character row as 3.
+  assert.deepEqual(user.items.map(item => item.tokens), [10, 2, 3]);
+});
+
 test("trend uses each request's occupancy, retains negative changes, and does not sum a turn's cache", () => {
   const rows = [message("u1", "user"), message("a1", "assistant", { usage: usage(20, 10, 70) }),
     message("a2", "assistant", { usage: usage(30, 10, 160) }), message("u2", "user"),

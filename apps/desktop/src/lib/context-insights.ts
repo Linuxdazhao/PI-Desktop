@@ -19,8 +19,24 @@ export function contextText(value: unknown): string {
   return JSON.stringify(value, null, 2) ?? "";
 }
 
+/**
+ * Rough token estimate for recorded text, not a tokenizer.
+ *
+ * One CJK/Hangul/Kana character costs about one token, everything else about a
+ * quarter. A flat `length / 4` would undercount CJK text roughly fourfold, and
+ * the browser compares categories against each other — so that bias would not
+ * cancel out: it would inflate the ASCII-heavy system prompt and tool schemas
+ * and shrink Chinese user text, tool output, and reasoning.
+ */
+const WIDE_SCRIPT = /[\u1100-\u11FF\u2E80-\u303F\u3040-\u30FF\u3130-\u318F\u3400-\u4DBF\u4E00-\u9FFF\uA960-\uA97F\uAC00-\uD7AF\uF900-\uFAFF\uFF00-\uFFEF]/u;
+const NARROW_SCRIPT_COST = 0.25;
+
 function estimate(text: string): number {
-  return Math.ceil(text.length / 4);
+  let cost = 0;
+  for (const character of text) {
+    cost += WIDE_SCRIPT.test(character) ? 1 : NARROW_SCRIPT_COST;
+  }
+  return Math.ceil(cost);
 }
 
 /** Internal system rows can arrive after the user row they precede. */
