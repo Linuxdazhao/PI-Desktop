@@ -679,9 +679,11 @@
   color: var(--ds-text-muted);
 }
 
-.sidebar-search-input {
+.sidebar-search-input.field-input {
   flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
+  padding: 0;
   border: none;
   outline: none;
   background: transparent;

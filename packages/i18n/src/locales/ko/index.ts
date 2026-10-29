@@ -230,6 +230,7 @@ export const ko = {
     buildUnknown: "버전 알 수 없음",
     search: "검색",
     searchPlaceholder: "프로젝트 및 채팅 검색",
+    searchWithTasksPlaceholder: "프로젝트, 채팅 및 작업 검색",
     noSearchResults: "결과 없음",
     clearSearch: "검색 지우기",
     actionWithShortcut: "{{action}} ({{shortcut}})",

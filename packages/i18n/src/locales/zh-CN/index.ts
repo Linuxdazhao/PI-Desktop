@@ -223,6 +223,7 @@ export const zhCN = {
     buildUnknown: "版本未知",
     search: "搜索",
     searchPlaceholder: "搜索项目和对话",
+    searchWithTasksPlaceholder: "搜索项目、对话和定时任务",
     noSearchResults: "无结果",
     clearSearch: "清除搜索",
     actionWithShortcut: "{{action}}（{{shortcut}}）",

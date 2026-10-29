@@ -221,6 +221,7 @@ export const fr = {
     "buildUnknown": "Version inconnue",
     "search": "Recherche",
     searchPlaceholder: "Rechercher projets et chats",
+    searchWithTasksPlaceholder: "Rechercher projets, chats et tâches",
     noSearchResults: "Aucun résultat",
     clearSearch: "Effacer la recherche",
     "actionWithShortcut": "{{action}} ({{shortcut}})",

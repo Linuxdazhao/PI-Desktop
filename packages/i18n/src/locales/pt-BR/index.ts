@@ -220,6 +220,7 @@ export const ptBR = {
     buildUnknown: "Versão desconhecida",
     search: "Pesquisar",
     searchPlaceholder: "Pesquisar projetos e chats",
+    searchWithTasksPlaceholder: "Pesquisar projetos, chats e tarefas",
     noSearchResults: "Nenhum resultado",
     clearSearch: "Limpar pesquisa",
     actionWithShortcut: "{{action}} ({{shortcut}})",

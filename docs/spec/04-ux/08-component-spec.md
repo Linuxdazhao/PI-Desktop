@@ -423,6 +423,17 @@ newest-run summaries every ten seconds and on window focus, with retryable read
 errors and stale-response guards. Disabling or unmounting stops these resources.
 Running count and rail use the existing sidebar running preferences.
 
+Sidebar search trims surrounding query whitespace and matches case-insensitive
+substrings in project names/paths, chat titles and remote project/host labels.
+It includes scheduled-task names only when `sidebarScheduledTasks` is true;
+task prompts and run transcripts are excluded. Search filters the loaded task
+list locally without restarting reads. A matching Scheduled group temporarily
+expands and cannot be folded during search, preserving its saved preference.
+Clearing search restores that preference; no task matches hides the group.
+The sidebar shows No results only when every searchable section is empty and
+any enabled scheduled reads have completed without an error. Loading and retry remain
+visible while searching.
+
 Section-level create and sort controls stay visually quiet at rest and reveal
 when the owning Sessions or Projects toolbar is hovered or keyboard-focused.
 Project-group `+` and overflow controls follow the same hover/focus treatment;

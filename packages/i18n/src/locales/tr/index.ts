@@ -230,6 +230,7 @@ export const tr = {
     buildUnknown: "Sürüm bilinmiyor",
     search: "Ara",
     searchPlaceholder: "Proje ve sohbet ara",
+    searchWithTasksPlaceholder: "Proje, sohbet ve görev ara",
     noSearchResults: "Sonuç yok",
     clearSearch: "Aramayı temizle",
     "actionWithShortcut": "{{action}} ({{shortcut}})",

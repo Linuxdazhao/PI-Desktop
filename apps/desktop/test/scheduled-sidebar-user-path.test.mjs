@@ -36,6 +36,8 @@ const runs = [{ id: "run-a", taskId: "a", sessionId: "automation-session", statu
   startedAt: timestamp, endedAt: null, errorCode: null }];
 let storedSettings = { theme: "light", language: "en", defaultMode: "agent", sidebarRunningIndicators: true };
 const calls = [];
+const unhandled = [];
+window.addEventListener("unhandledrejection", (event) => unhandled.push(String(event.reason)));
 let failList = false;
 let deferList = false;
 const pendingLists = [];
@@ -68,6 +70,8 @@ window.piDesktop = { platform: "win32", on() { return () => {}; }, async invoke(
     case IPC.invoke.scheduledListRuns:
       data = { runs: args[0]?.taskId ? [] : runs }; break;
     case IPC.invoke.projectList: data = { projects: [] }; break;
+    case IPC.invoke.sessionList: data = { sessions: structuredClone(useAppStore.getState().sessions) }; break;
+    case IPC.invoke.appGetOnboarding: data = { showChecklist: false, steps: [] }; break;
     case IPC.invoke.providersList: data = { providers: [] }; break;
     case IPC.invoke.pluginScenicThemesDestinations: data = []; break;
     case IPC.invoke.systemFontsList: data = []; break;
@@ -109,6 +113,17 @@ const row = (id) => document.querySelector('[data-sidebar-scheduled-task="' + id
 const toggle = () => [...document.querySelectorAll('button[role="switch"]')]
   .find((node) => node.getAttribute("aria-label") === "Show scheduled tasks");
 const click = (node) => flushSync(() => check(node, "Missing control").click());
+const readCount = () => calls.filter((call) => call.channel === IPC.invoke.scheduledList).length;
+const noResults = () => [...document.querySelectorAll('.sidebar-body .sidebar-session-empty')]
+  .some((node) => node.textContent === "No results");
+async function search(value) {
+  const input = check(document.querySelector('.sidebar-search-input'), "Missing sidebar search");
+  flushSync(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await settle();
+}
 const open = async (id, title) => {
   click(row(id));
   await until(() => document.getElementById("scheduled-detail-title")?.textContent === title,
@@ -120,6 +135,13 @@ window.scheduledSidebarProbe = async () => {
   await settle();
   check(!group(), "Default-off sidebar has a task group");
   check(!calls.some((call) => call.channel === IPC.invoke.scheduledList), "Disabled group fetched tasks");
+  check(document.querySelector('.sidebar-search-input').placeholder === "Search projects and chats", "Disabled search advertises tasks");
+  await search("Nightly");
+  check(!group() && noResults(), "Disabled tasks participated in search");
+  check(readCount() === 0, "Search fetched disabled tasks");
+  await search("Hidden automation transcript");
+  check(!document.querySelector('[data-sidebar-session-row="automation-session"]'), "Search exposed a run transcript");
+  await search("");
   click(document.querySelector('[data-nav="settings"]'));
   await until(toggle, "Sidebar settings did not open");
   check(toggle().getAttribute("aria-checked") === "false", "Default must be off");
@@ -128,10 +150,14 @@ window.scheduledSidebarProbe = async () => {
   await until(() => useAppStore.getState().settings.sidebarScheduledTasks === true, "Setting did not enable");
   click(document.querySelector('[data-nav="back-to-app"]'));
   await until(() => group()?.querySelector('[role="alert"]'), "Loading failure is not visible");
+  await search("Review");
+  check(group()?.querySelector('[role="alert"]') && !noResults(), "Search hid the task read error");
   check(storedSettings.sidebarScheduledTasks === true, "Enabled preference was not persisted");
   failList = false;
   click(group().querySelector('[role="alert"] button'));
   await until(() => row("b"), "Retry did not load tasks");
+  await search("");
+  check(document.querySelector('.sidebar-search-input').placeholder === "Search projects, chats and tasks", "Enabled search omits tasks");
   check(group().querySelectorAll('[data-sidebar-scheduled-task]').length === 3, "Task identity or count changed");
   check(row("b").textContent.includes("Disabled"), "Paused task shortcut missing");
   check(!document.querySelector('[data-sidebar-session-row="automation-session"]'), "Run transcript leaked into conversations");
@@ -142,6 +168,52 @@ window.scheduledSidebarProbe = async () => {
   flushSync(remountSidebar);
   await until(() => row("b"), "Remounted group did not load");
   check(document.getElementById("sidebar-scheduled-label").getAttribute("aria-expanded") === "false", "Collapse was not persisted");
+  const readsBeforeSearch = readCount();
+  await search("  rEvIeW  ");
+  check(row("b") && !row("a") && !row("c"), "Task search did not match only the task name, ignoring case and whitespace");
+  check(!noResults(), "Matching tasks also showed No results");
+  check(!document.getElementById("sidebar-scheduled-tasks").inert, "Search did not reveal folded matches");
+  click(document.getElementById("sidebar-scheduled-label"));
+  check(!document.getElementById("sidebar-scheduled-tasks").inert, "Search matches could be folded away");
+  check(localStorage.getItem("pi.desktop.sidebarScheduledTasksCollapsed") === "true", "Search changed saved folding");
+  click(document.querySelector('.sidebar-search-clear'));
+  await settle();
+  check(document.getElementById("sidebar-scheduled-tasks").inert, "Clearing search did not restore folding");
+  await search("nightly");
+  check(row("a") && row("c") && !row("b"), "Search lost duplicate-name tasks");
+  await search("Fixture project");
+  check(!group() && !noResults(), "Project matches did not exclude unrelated tasks");
+  await search("Read the fixture project.");
+  check(!group() && noResults(), "Task prompts participated in name search");
+  check(readCount() === readsBeforeSearch, "Typing in search fetched tasks again");
+  await search("");
+  const originalSessions = useAppStore.getState().sessions;
+  const session = (id, title, projectPath = "/fixture", extra = {}) => ({ id, title, projectPath,
+    createdAt: timestamp, updatedAt: timestamp, ...extra });
+  flushSync(() => useAppStore.setState({ sessions: [...originalSessions,
+    session("pinned", "Pinned result"), session("temporary", "Temporary result", null),
+    session("remote:result", "Remote result", null, { source: "remote", remoteHostKey: "host",
+      remoteHostLabel: "Fixture host", remoteProjectId: "remote-project", remoteWorkspaceLabel: "Remote workspace" }),
+    session("first", "Pick first", "/fixture", { updatedAt: "2026-10-29T03:00:00Z" }),
+    session("middle", "Hidden middle", "/fixture", { updatedAt: "2026-10-29T02:00:00Z" }),
+    session("last", "Pick last", "/fixture", { updatedAt: "2026-10-29T01:00:00Z" }),
+  ], sessionMeta: { pinned: { pinned: true } } }));
+  for (const [query, id] of [["Pinned result", "pinned"], ["Temporary result", "temporary"],
+    ["Remote workspace", "remote:result"], ["Fixture host", "remote:result"]]) {
+    await search(query);
+    check(document.querySelector('[data-sidebar-session-row="' + id + '"]') && !noResults(), "False empty state for " + query);
+  }
+  await search("");
+  const select = (id, modifiers) => flushSync(() => document.querySelector('[data-sidebar-session-row="' + id + '"]')
+    .dispatchEvent(new MouseEvent("click", { bubbles: true, ...modifiers })));
+  select("middle", { metaKey: true });
+  await search("Pick");
+  select("first", { metaKey: true });
+  select("last", { shiftKey: true });
+  await search("");
+  check([...document.querySelectorAll('[data-sidebar-session-row].selected')].map((node) => node.dataset.sidebarSessionRow).sort().join() === "first,last",
+    "Search range selection included a hidden session");
+  flushSync(() => useAppStore.setState({ sessions: originalSessions, sessionMeta: {} }));
   click(document.getElementById("sidebar-scheduled-label"));
   await open("b", "Review PRs");
   await open("a", "Nightly checks");
@@ -199,12 +271,23 @@ window.scheduledSidebarProbe = async () => {
   click(document.querySelector('[data-nav="back-to-app"]'));
   await settle();
   check(!group(), "Disabled group reappeared after leaving settings");
-  const readCount = () => calls.filter((call) => call.channel === IPC.invoke.scheduledList).length;
+  await search("Polled review");
+  check(!group() && noResults(), "Disabled tasks remained searchable after settings reload");
+  deferList = true;
+  flushSync(() => useAppStore.setState({ settings: { ...reloaded, sidebarScheduledTasks: true } }));
+  await until(() => pendingLists.length === 1, "Enabling a mounted sidebar did not start a read");
+  check(group()?.querySelector('[role="status"]') && !noResults(), "Search replaced loading with No results");
+  flushSync(() => useAppStore.setState({ settings: reloaded }));
+  pendingLists.shift()();
+  await settle();
+  check(!group() && noResults(), "An in-flight read restored disabled search results");
+  deferList = false;
   const readsAfterDisable = readCount();
   for (const poll of [...polls.values()]) poll();
   window.dispatchEvent(new Event("focus"));
   await settle();
   check(readCount() === readsAfterDisable, "Task reads continued after teardown");
+  check(unhandled.length === 0, "Unhandled fixture errors: " + unhandled.join("; "));
   check(!calls.some((call) => [IPC.invoke.scheduledExecute, IPC.invoke.scheduledRun].includes(call.channel)), "Navigation executed a task");
   flushSync(() => view.unmount());
   return { passed: true, persisted: storedSettings.sidebarScheduledTasks };
@@ -222,7 +305,7 @@ window.scheduledSidebarPreview = async () => {
 };
 `;
 
-test("scheduled shortcuts support settings, retry, task navigation, refresh, folding and disable", {
+test("scheduled shortcuts support settings, search, navigation, refresh, folding and disable", {
   timeout: 60_000,
   skip: process.platform === "linux" && !process.env.DISPLAY ? "Electron requires a display" : false,
 }, async () => {

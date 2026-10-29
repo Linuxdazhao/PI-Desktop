@@ -223,6 +223,7 @@ export const zhTW = {
     buildUnknown: "版本未知",
     search: "搜尋",
     searchPlaceholder: "搜尋專案與對話",
+    searchWithTasksPlaceholder: "搜尋專案、對話與排程任務",
     noSearchResults: "無結果",
     clearSearch: "清除搜尋",
     actionWithShortcut: "{{action}}（{{shortcut}}）",

@@ -228,6 +228,7 @@ export const en = {
     buildUnknown: "Version unknown",
     search: "Search",
     searchPlaceholder: "Search projects and chats",
+    searchWithTasksPlaceholder: "Search projects, chats and tasks",
     noSearchResults: "No results",
     clearSearch: "Clear search",
     actionWithShortcut: "{{action}} ({{shortcut}})",

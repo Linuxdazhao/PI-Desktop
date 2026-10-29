@@ -1,5 +1,6 @@
 import { IconClock } from "./icons";
 import { ScheduledSidebarGroup } from "../features/scheduled/ScheduledSidebarGroup";
+import { useSidebarScheduledTasks } from "../features/scheduled/use-sidebar-scheduled-tasks";
 import { RemoteProjectGroups } from "./remote/RemoteProjectGroups";
 import { groupRemoteProjectSessions, type RemoteProjectGroup } from "../lib/remote-project-catalog";
 import { isRemoteSession, sessionAllows } from "../lib/remote-session-safety";
@@ -16,7 +17,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { TooltipButton, cx } from "./ui";
+import { Input, TooltipButton, cx } from "./ui";
 
 import { portalToBody } from "../lib/portal-visibility";
 import {
@@ -27,6 +28,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { api } from "../lib/api";
 import { formatSessionLastReplyDate } from "../lib/sidebar-session-date";
+import { matchesSidebarSearch } from "../lib/sidebar-search";
 import { SessionHoverCard } from "../features/sessions/SessionHoverCard";
 import { useSessionHoverCard } from "../features/sessions/useSessionHoverCard";
 import { isDefaultSessionTitle, useAppStore } from "../stores/app-store";
@@ -350,6 +352,9 @@ export function Sidebar({
   const [dropIndicator, setDropIndicator] = useState<{ key: string; insertAfter: boolean } | null>(null);
   const [windowFocused, setWindowFocused] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const scheduledTasksEnabled = settings?.sidebarScheduledTasks === true;
+  const scheduledTasks = useSidebarScheduledTasks(scheduledTasksEnabled, searchQuery);
+  const searchPlaceholder = t(scheduledTasksEnabled ? "nav.searchWithTasksPlaceholder" : "nav.searchPlaceholder");
 
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const menuFirstItemRef = useRef<HTMLButtonElement | null>(null);
@@ -1051,34 +1056,17 @@ export function Sidebar({
   const remoteProjectGroups = useMemo(() => groupRemoteProjectSessions(
     filtered.filter((session) => isRemoteSession(session) && !pinnedSessionIds.has(session.id)), compareSessions,
   ), [filtered, pinnedSessionIds, compareSessions]);
-  // Flat ordered list of every visible session id — used for Shift+click range selection.
-  const flatSessionOrder = useMemo(() => {
-    const ids: string[] = [];
-    // Pinned first (same order as rendered)
-    for (const s of pinnedSessions) ids.push(s.id);
-    // Then project sessions
-    for (const entry of projectEntries) {
-      for (const s of entry.sessions) {
-        if (!pinnedSessionIds.has(s.id)) ids.push(s.id);
-      }
-    }
-    for (const group of remoteProjectGroups) for (const session of group.sessions) ids.push(session.id);
-    // Then temporary (standalone) sessions
-    for (const s of temporarySessionHistory) ids.push(s.id);
-    return ids;
-  }, [pinnedSessions, projectEntries, pinnedSessionIds, temporarySessionHistory, remoteProjectGroups]);
-
   // Search filtering: when the query is non-empty, only show projects and sessions
   // whose name or title contains the query (case-insensitive).
   const searchQueryLower = searchQuery.trim().toLowerCase();
   const hasSearch = searchQueryLower.length > 0;
   const sessionMatchesSearch = useCallback(
-    (session: SessionSummary) => !hasSearch || taskTitle(session.title).toLowerCase().includes(searchQueryLower),
-    [hasSearch, searchQueryLower, taskTitle],
+    (session: SessionSummary) => matchesSidebarSearch(taskTitle(session.title), searchQueryLower),
+    [searchQueryLower, taskTitle],
   );
   const projectMatchesSearch = useCallback(
-    (name: string, path: string) => !hasSearch || name.toLowerCase().includes(searchQueryLower) || path.toLowerCase().includes(searchQueryLower),
-    [hasSearch, searchQueryLower],
+    (name: string, path: string) => matchesSidebarSearch(name, searchQueryLower) || matchesSidebarSearch(path, searchQueryLower),
+    [searchQueryLower],
   );
 
   const displayPinnedSessions = useMemo(
@@ -1116,6 +1104,24 @@ export function Sidebar({
       })
       .filter((group): group is RemoteProjectGroup => group !== null);
   }, [remoteProjectGroups, hasSearch, projectMatchesSearch, sessionMatchesSearch]);
+
+  const showNoSearchResults = hasSearch
+    && displayPinnedSessions.length === 0 && displayProjectEntries.length === 0
+    && displayTemporarySessionHistory.length === 0 && displayRemoteProjectGroups.length === 0
+    && (!scheduledTasksEnabled || (scheduledTasks.loaded && !scheduledTasks.error && scheduledTasks.tasks.length === 0));
+
+  // Range selection follows the filtered order, excluding hidden search results.
+  const flatSessionOrder = useMemo(() => {
+    const ids = displayPinnedSessions.map((session) => session.id);
+    for (const entry of displayProjectEntries) {
+      for (const session of entry.sessions) {
+        if (!pinnedSessionIds.has(session.id)) ids.push(session.id);
+      }
+    }
+    for (const group of displayRemoteProjectGroups) for (const session of group.sessions) ids.push(session.id);
+    for (const session of displayTemporarySessionHistory) ids.push(session.id);
+    return ids;
+  }, [displayPinnedSessions, displayProjectEntries, pinnedSessionIds, displayTemporarySessionHistory, displayRemoteProjectGroups]);
 
   /** Handle multi-select click on a session row. Returns true if the click was consumed by multi-select. */
   const handleMultiSelectClick = (event: React.MouseEvent, sessionId: string): boolean => {
@@ -1169,8 +1175,9 @@ export function Sidebar({
     return false;
   };
 
-  // Clear multi-select when sessions list changes (e.g. after batch delete)
-  const sessionIdSet = useMemo(() => new Set(sessions.map((s) => s.id)), [sessions]);
+  // Search must not retain hidden selections for batch actions.
+  const sessionIdSet = useMemo(() => new Set(hasSearch ? flatSessionOrder : sessions.map((s) => s.id)),
+    [hasSearch, flatSessionOrder, sessions]);
   useEffect(() => {
     if (selectedIds.size === 0) return;
     // Remove any selected ids that no longer exist
@@ -2641,23 +2648,23 @@ export function Sidebar({
 
         <div className="sidebar-search">
           <IconSearch size={13} className="sidebar-search-icon" aria-hidden />
-          <input
+          <Input
             type="text"
             className="sidebar-search-input"
-            placeholder={t("nav.searchPlaceholder", { defaultValue: "Search projects and chats" })}
+            placeholder={searchPlaceholder}
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            aria-label={t("nav.search", { defaultValue: "Search" })}
+            aria-label={searchPlaceholder}
           />
           {searchQuery ? (
-            <button
+            <TooltipButton
               type="button"
               className="sidebar-search-clear"
               onClick={() => setSearchQuery("")}
-              aria-label={t("nav.clearSearch", { defaultValue: "Clear search" })}
+              tooltip={t("nav.clearSearch")}
             >
               <IconX size={12} />
-            </button>
+            </TooltipButton>
           ) : null}
         </div>
 
@@ -2806,10 +2813,8 @@ export function Sidebar({
           onDragLeave={onProjectsAreaDragLeave}
           onDrop={onProjectsAreaDrop}
         >
-          {settings?.sidebarScheduledTasks === true && <ScheduledSidebarGroup />}
-          {displayProjectEntries.length > 0 ? displayProjectEntries.map(renderProjectGroup) : hasSearch ? (
-            <div className="sidebar-session-empty">{t("nav.noSearchResults", { defaultValue: "No results" })}</div>
-          ) : (
+          {scheduledTasksEnabled && <ScheduledSidebarGroup {...scheduledTasks} />}
+          {displayProjectEntries.length > 0 ? displayProjectEntries.map(renderProjectGroup) : !hasSearch ? (
             <section className="sidebar-session-group" aria-labelledby="sidebar-project-group-label">
               <div className="sidebar-session-group-header">
                 <button type="button" id="sidebar-project-group-label" className="sidebar-session-group-title" onClick={() => void openProjectPicker()}>
@@ -2818,12 +2823,13 @@ export function Sidebar({
                 </button>
               </div>
             </section>
-          )}
+          ) : null}
           <RemoteProjectGroups groups={displayRemoteProjectGroups}
             renderSessions={(sessions) => renderSessionRows(sessions, {
               temporary: false,
               showLastReplyDate: settings?.sidebarSessionTime === true,
             })} />
+          {showNoSearchResults && <div className="sidebar-session-empty" role="status">{t("nav.noSearchResults")}</div>}
         </div>
 
         <div className="sidebar-footer no-drag">

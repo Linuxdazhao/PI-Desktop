@@ -48,6 +48,10 @@ destination, chat as the home surface, tools and permissions inline.
   task has one shortcut to its existing detail and run history, including paused
   tasks; runs do not become ordinary conversation rows. Folding is saved under
   a separate renderer preference key. The footer clock remains available.
+  Sidebar search includes task names only while this preference is on, with
+  the same case-insensitive substring matching as project and chat names.
+  Matching tasks temporarily expand the group; clearing search restores its
+  saved fold state.
 - **Product identity**: runtime shell copy uses `PI-Desktop`; the home hero and
   sidebar reuse the derived `src/assets/brand/logo-*.png` marks, while composer prompt
   rows have no leading brand icon and session-creation controls use a dedicated

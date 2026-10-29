@@ -91,6 +91,7 @@
 - 侧边栏卡片中的**显示定时任务**保存为 `AppSettings.sidebarScheduledTasks`，
   缺省或 false 均为关闭。开启只显示单任务快捷入口，不会启用或执行任务。
   关闭会移除分组并停止读取，不修改任务、结果或单独保存的折叠状态。
+  开启时定时任务名称参与侧边栏搜索，关闭时排除，重新加载设置后仍遵守该选择。
 - **侧边栏**卡片：一个项目运行活动总开关
   (`AppSettings.sidebarRunningIndicators`) 与独立的**数量徽标**和**活动流光**开关
   (`sidebarRunningBadge`、`sidebarRunningRail`)。未设置时总开关和数量徽标默认开启，活动流光默认关闭；

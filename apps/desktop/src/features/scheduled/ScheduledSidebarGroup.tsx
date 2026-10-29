@@ -7,15 +7,16 @@ import { loadScheduledSidebarCollapsed, saveScheduledSidebarCollapsed } from "..
 import { resolveSidebarRunningAffordances, summarizeProjectRuns } from "../../lib/sidebar-project-runs";
 import { useAppStore } from "../../stores/app-store";
 import { latestRunByTask } from "./scheduled-runs";
-import { useSidebarScheduledTasks } from "./use-sidebar-scheduled-tasks";
+import type { useSidebarScheduledTasks } from "./use-sidebar-scheduled-tasks";
 
-export function ScheduledSidebarGroup() {
+export function ScheduledSidebarGroup({ tasks, runs, loaded, error, refresh, searching }:
+  ReturnType<typeof useSidebarScheduledTasks>) {
   const { t } = useTranslation();
   const settings = useAppStore((s) => s.settings);
   const pendingPermissions = useAppStore((s) => s.pendingPermissions);
   const openTask = useAppStore((s) => s.openScheduledTask);
-  const { tasks, runs, loaded, error, refresh } = useSidebarScheduledTasks();
   const [collapsed, setCollapsed] = useState(loadScheduledSidebarCollapsed);
+  const isCollapsed = collapsed && !searching;
   const affordances = resolveSidebarRunningAffordances(settings);
   const latestRuns = latestRunByTask(runs);
   const liveSessions = tasks.flatMap((task) => {
@@ -26,9 +27,11 @@ export function ScheduledSidebarGroup() {
   const summary = summarizeProjectRuns(liveSessions, running, pendingPermissions);
   const showRail = affordances.rail && summary.running + summary.waiting > 0;
 
+  if (searching && loaded && !error && tasks.length === 0) return null;
+
   return (
     <section
-      className={cx("sidebar-session-group project-group", showRail && "has-run-rail", collapsed && "is-collapsed")}
+      className={cx("sidebar-session-group project-group", showRail && "has-run-rail", isCollapsed && "is-collapsed")}
       data-sidebar-scheduled-group="tasks"
       aria-labelledby="sidebar-scheduled-label"
       onContextMenu={(event) => event.stopPropagation()}
@@ -39,15 +42,17 @@ export function ScheduledSidebarGroup() {
           type="button"
           id="sidebar-scheduled-label"
           className="sidebar-session-group-title"
-          aria-expanded={!collapsed}
+          aria-expanded={!isCollapsed}
           aria-controls="sidebar-scheduled-tasks"
+          aria-disabled={searching}
           onClick={() => {
+            if (searching) return;
             const next = !collapsed;
             setCollapsed(next);
             saveScheduledSidebarCollapsed(next);
           }}
         >
-          <IconChevronDown size={13} className={cx("sidebar-disclosure-icon", collapsed && "collapsed")} aria-hidden />
+          <IconChevronDown size={13} className={cx("sidebar-disclosure-icon", isCollapsed && "collapsed")} aria-hidden />
           <IconClock size={13} aria-hidden />
           <span>{t("scheduled.title")}</span>
           {affordances.badge && <ProjectRunBadge summary={summary} />}
@@ -55,9 +60,9 @@ export function ScheduledSidebarGroup() {
       </div>
       <div
         id="sidebar-scheduled-tasks"
-        className={cx("sidebar-session-group-body project", collapsed && "collapsed")}
-        aria-hidden={collapsed}
-        inert={collapsed}
+        className={cx("sidebar-session-group-body project", isCollapsed && "collapsed")}
+        aria-hidden={isCollapsed}
+        inert={isCollapsed}
       >
         <div className="sidebar-session-group-clip">
           <div className="sidebar-session-group-list">

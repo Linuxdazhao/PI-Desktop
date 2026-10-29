@@ -197,6 +197,8 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   Enabling it exposes per-task shortcuts; it does not enable a task or execute
   a run. Disabling it removes the group and stops its reads without changing
   task definitions, results, or the separately remembered fold state.
+  Task names participate in sidebar search while enabled and are excluded
+  while disabled, including after settings are reloaded.
 - **Network** card:
   - **Proxy**: a segmented control — System, Direct, Custom. System is the
     default and lets Chromium follow the OS proxy; Direct disables the proxy;

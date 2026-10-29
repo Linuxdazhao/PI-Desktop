@@ -19273,6 +19273,14 @@ their separate platform acceptance.
 5. Refresh after a task rename, creation or deletion. Existing running settings
    gate the count and rail. Disable during an in-flight read; completing it
    cannot restore the group. Re-read settings and verify the choice survives.
+6. With shortcuts off, searching a task name returns no task results and starts
+   no reads. With shortcuts on and the group folded, search a paused task name
+   with mixed case and surrounding spaces. Only matching tasks appear, expanded
+   and keyboard reachable, with no false No results message. Searching does not
+   change the saved fold or start more reads; clearing restores folding.
+   Duplicate names retain distinct IDs; prompts and run transcripts never match.
+   A project-only match hides the task group; no matches shows No results.
+   Disable and reload settings, then verify task names are still excluded.
 
 Automated coverage: `node --test apps/desktop/test/scheduled-sidebar.test.mjs`
 and `pnpm test:e2e:scheduled-sidebar`. The latter uses real React, routing,
