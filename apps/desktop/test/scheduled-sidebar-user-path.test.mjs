@@ -38,7 +38,20 @@ let storedSettings = { theme: "light", language: "en", defaultMode: "agent", sid
 const calls = [];
 let failList = false;
 let deferList = false;
-let releaseList;
+const pendingLists = [];
+const polls = new Map();
+let nextPoll = -1;
+const nativeInterval = window.setInterval.bind(window);
+const nativeClearInterval = window.clearInterval.bind(window);
+window.setInterval = (callback, delay, ...args) => {
+  if (delay !== 10000) return nativeInterval(callback, delay, ...args);
+  const id = nextPoll--;
+  polls.set(id, () => callback(...args));
+  return id;
+};
+window.clearInterval = (id) => {
+  if (!polls.delete(id)) nativeClearInterval(id);
+};
 window.piDesktop = { platform: "win32", on() { return () => {}; }, async invoke(channel, ...args) {
   calls.push({ channel, args });
   let data;
@@ -47,8 +60,11 @@ window.piDesktop = { platform: "win32", on() { return () => {}; }, async invoke(
     case IPC.invoke.settingsSet: storedSettings = structuredClone(args[0]); break;
     case IPC.invoke.scheduledList:
       if (failList) throw new Error("Fixture task list unavailable");
-      if (deferList) await new Promise((resolve) => { releaseList = resolve; });
-      data = { tasks: structuredClone(tasks) }; break;
+      if (deferList) {
+        const snapshot = structuredClone(tasks);
+        data = await new Promise((resolve) => pendingLists.push(() => resolve({ tasks: snapshot })));
+      } else data = { tasks: structuredClone(tasks) };
+      break;
     case IPC.invoke.scheduledListRuns:
       data = { runs: args[0]?.taskId ? [] : runs }; break;
     case IPC.invoke.projectList: data = { projects: [] }; break;
@@ -146,20 +162,32 @@ window.scheduledSidebarProbe = async () => {
   await settle();
   check(!group().querySelector('.project-run-badge, .project-run-rail'), "Running indicators ignored their setting");
 
+  deferList = true;
+  window.dispatchEvent(new Event("focus"));
+  await until(() => pendingLists.length === 1, "Older read did not start");
+  const finishOlderRead = pendingLists.shift();
   tasks = [task("b", "Renamed review", false), task("d", "New task")];
   window.dispatchEvent(new Event("focus"));
+  await until(() => pendingLists.length === 1, "Newer read did not start");
+  pendingLists.shift()();
   await until(() => row("d") && row("b")?.textContent.includes("Renamed review"), "Task edits were not refreshed");
+  finishOlderRead();
+  await settle();
   check(!row("a") && !row("c"), "Deleted tasks remain in sidebar");
+  deferList = false;
+  tasks = [task("b", "Polled review", false), task("d", "New task")];
+  for (const poll of [...polls.values()]) poll();
+  await until(() => row("b")?.textContent.includes("Polled review"), "Ten-second poll did not refresh tasks");
 
   deferList = true;
   window.dispatchEvent(new Event("focus"));
-  await until(() => releaseList, "Pending list was not started");
+  await until(() => pendingLists.length === 1, "Pending list was not started");
   click(document.querySelector('[data-nav="settings"]'));
   await until(toggle, "Settings did not reopen");
   click(toggle());
   await until(() => useAppStore.getState().settings.sidebarScheduledTasks === false, "Setting did not disable");
   deferList = false;
-  releaseList();
+  pendingLists.shift()();
   await settle();
   check(!group(), "An obsolete read restored the disabled group");
   check(storedSettings.sidebarScheduledTasks === false, "Disabled preference was not persisted");
@@ -171,6 +199,12 @@ window.scheduledSidebarProbe = async () => {
   click(document.querySelector('[data-nav="back-to-app"]'));
   await settle();
   check(!group(), "Disabled group reappeared after leaving settings");
+  const readCount = () => calls.filter((call) => call.channel === IPC.invoke.scheduledList).length;
+  const readsAfterDisable = readCount();
+  for (const poll of [...polls.values()]) poll();
+  window.dispatchEvent(new Event("focus"));
+  await settle();
+  check(readCount() === readsAfterDisable, "Task reads continued after teardown");
   check(!calls.some((call) => [IPC.invoke.scheduledExecute, IPC.invoke.scheduledRun].includes(call.channel)), "Navigation executed a task");
   flushSync(() => view.unmount());
   return { passed: true, persisted: storedSettings.sidebarScheduledTasks };
