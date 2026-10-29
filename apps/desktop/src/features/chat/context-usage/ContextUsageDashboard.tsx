@@ -202,6 +202,7 @@ export function ContextUsageDashboard({
       ),
     [ordered],
   );
+  const toolTokens = tools.reduce((sum, tool) => sum + tool.totalTokens, 0);
   const turnToolRows = useMemo(() => aggregateToolTokenUsage(turnTools), [turnTools]);
   const selectedUsage = selected?.message.usage ?? usage;
   const segments = contextUsageSegments(selectedUsage);
@@ -335,8 +336,8 @@ export function ContextUsageDashboard({
       >
         <div className="context-capacity-heading">
           <span>
-            <strong>{formatCompactTokenCount(current.usedTokens)}</strong> / {formatCompactTokenCount(contextWindow)}{" "}
-            tokens
+            <strong>{formatCompactTokenCount(current.usedTokens)}</strong> /{" "}
+            {t("chat.insightsWindowTokens", { window: formatCompactTokenCount(contextWindow) })}
           </span>
           <span>{t("chat.insightsUsedPercent", { percent: current.usedPercent })}</span>
         </div>
@@ -426,8 +427,14 @@ export function ContextUsageDashboard({
                 className="context-trend-column"
                 ref={request.message.id === selected?.message.id ? selectedBarRef : undefined}
                 aria-pressed={request.message.id === selected?.message.id}
-                aria-label={`${requestLabel(request.turn, request.step)} · ${mode === "delta" && delta > 0 ? "+" : ""}${formatCompactTokenCount(mode === "delta" ? delta : total)} tokens`}
-                title={`${requestLabel(request.turn, request.step)} · ${mode === "delta" && delta > 0 ? "+" : ""}${formatCompactTokenCount(mode === "delta" ? delta : total)} tokens${request.compactions.length ? ` · ${t("chat.insightsCompactions")}` : ""}`}
+                aria-label={t("chat.insightsTrendBar", {
+                  request: requestLabel(request.turn, request.step),
+                  value: `${mode === "delta" && delta > 0 ? "+" : ""}${formatCompactTokenCount(mode === "delta" ? delta : total)}`,
+                })}
+                title={`${t("chat.insightsTrendBar", {
+                  request: requestLabel(request.turn, request.step),
+                  value: `${mode === "delta" && delta > 0 ? "+" : ""}${formatCompactTokenCount(mode === "delta" ? delta : total)}`,
+                })}${request.compactions.length ? ` · ${t("chat.insightsCompactions")}` : ""}`}
                 onClick={() => setSelectedId(request.message.id)}
               >
                 <span className="context-trend-bar-area">
@@ -489,7 +496,7 @@ export function ContextUsageDashboard({
       >
         <div className="context-browser-scope">
           <span>{t("chat.insightsRecordedBefore")}</span>
-          <strong>≈{formatCompactTokenCount(historyTokens)} tokens</strong>
+          <strong>{t("chat.insightsApproxTokens", { count: formatCompactTokenCount(historyTokens) })}</strong>
         </div>
         <div className="context-history-bar" aria-hidden="true">
           {groups.map((group) => (
@@ -517,7 +524,14 @@ export function ContextUsageDashboard({
         <p className="context-data-note">{t("chat.insightsHistoryNote")}</p>
       </Card>
 
-      <Card title={t("chat.insightsToolRanking")} extra={<span className="context-badge">{scope} · ≈ tokens</span>}>
+      <Card
+        title={t("chat.insightsToolRanking")}
+        extra={
+          <span className="context-badge">
+            {scope} · {t("chat.insightsApproxTokens", { count: formatCompactTokenCount(toolTokens) })}
+          </span>
+        }
+      >
         <div className="context-tool-list">
           {tools.length ? (
             tools.map((tool) => (
