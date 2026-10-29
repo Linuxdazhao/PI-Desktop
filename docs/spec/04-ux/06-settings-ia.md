@@ -192,6 +192,11 @@ Settings is a **full-window page** that replaces the app sidebar + main chrome (
   the previous choice instead of resetting it. The affordances themselves are
   described in
   [01-ui-ia.md §3.2](01-ui-ia.md#32-sidebar-project-groups).
+- **Show scheduled tasks** in the Sidebar card persists
+  `AppSettings.sidebarScheduledTasks`, with absent and false meaning off.
+  Enabling it exposes per-task shortcuts; it does not enable a task or execute
+  a run. Disabling it removes the group and stops its reads without changing
+  task definitions, results, or the separately remembered fold state.
 - **Network** card:
   - **Proxy**: a segmented control — System, Direct, Custom. System is the
     default and lets Chromium follow the OS proxy; Direct disables the proxy;

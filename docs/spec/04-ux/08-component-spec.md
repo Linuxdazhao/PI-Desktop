@@ -407,10 +407,21 @@ expanded sidebar shows a global `Pinned` section when pins exist, followed by
 path-less history under `Sessions` and retained project tabs under `Projects`; the
 collapsed state is an icon rail. Retained tabs are renderer presentation state,
 not additional host workspaces.
-The sidebar body is reserved for Pinned, Sessions, and Projects; the footer exposes the
+By default the sidebar body contains Pinned, Sessions, and Projects; the footer exposes the
 Plugins and Scheduled destinations beside Settings. Scheduled uses a clock
 action with a localized accessible name and active state. Projects is managed
 through Settings → Project archive.
+
+The optional `sidebarScheduledTasks` preference adds one Scheduled group before
+the project groups in the same scrolling area. It has one button per task ID,
+including paused tasks. Activation selects that task on the existing Scheduled
+route, also when that route is already open, and dismisses an open task editor.
+Run transcripts retain their existing exclusion from session lists and search.
+The group saves its fold state separately from project metadata; folded rows
+are inert and hidden from accessibility. While enabled it refreshes task and
+newest-run summaries every ten seconds and on window focus, with retryable read
+errors and stale-response guards. Disabling or unmounting stops these resources.
+Running count and rail use the existing sidebar running preferences.
 
 Section-level create and sort controls stay visually quiet at rest and reveal
 when the owning Sessions or Projects toolbar is hovered or keyboard-focused.

@@ -864,6 +864,7 @@ export const de = {
     "sidebarRunningBadge": "Anzahl-Badge",
     "sidebarRunningRail": "Aktivitätsschiene",
     sidebarSessionTime: "Sitzungszeit",
+    sidebarScheduledTasks: "Geplante Aufgaben anzeigen",
     "keepAwakeWhileRunning": "Computer wach halten",
     "keepAwakeWhileRunningDesc": "Verhindert den Ruhezustand bei Inaktivität, solange PI-Desktop läuft. Der Bildschirm kann sich ausschalten; manuelles Schlafen und Zuklappen bleiben möglich.",
     "imageModel": "Bildgenerierungsmodell",

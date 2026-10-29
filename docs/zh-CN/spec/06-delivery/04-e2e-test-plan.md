@@ -10119,3 +10119,22 @@ PluginPack 产物的解包目录，仅用于开发验证。验收 #1711 前需�
   event/result agreement, batch rejection and delegate restoration.
 - **Status**: Automated offline; native UI clicking and live providers are
   outside this fixture's coverage.
+
+
+### E2E-SCHEDULED-sidebar-task-shortcuts
+
+1. `sidebarScheduledTasks` 缺省或为 false 时不显示分组，也不读取任务列表。
+   在常规 → 侧边栏打开“显示定时任务”，通过正常设置路径保存布尔值。
+2. 首次读取失败时显示重试；恢复后按任务 ID 展示入口，包含暂停任务和同名任务。
+   定时执行会话仍不进入普通会话列表。
+3. 折叠后核对 aria-expanded、aria-hidden 和 inert，重新挂载后保留折叠状态，
+   不修改项目元数据。
+4. 打开暂停任务、在定时任务页内切换任务，再通过同一快捷入口返回。
+   每次核对详情和按任务读取的运行历史；导航不会派发执行。
+5. 重命名、新建、删除后刷新入口，运行开关控制数量和活动轨道。
+   读取未完成时关闭开关，旧响应不能恢复分组；重新读取设置后选择仍然保留。
+
+自动覆盖：`node --test apps/desktop/test/scheduled-sidebar.test.mjs` 与
+`pnpm test:e2e:scheduled-sidebar`。后者在隔离 Electron 窗口内使用真实 React、
+路由、设置控件和侧边栏，以合成 IPC 响应验证用户路径；不代表 Rust 持久化、
+调度器或模型执行验证。

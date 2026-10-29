@@ -876,6 +876,7 @@ export const en = {
     sidebarRunningBadge: "Count badge",
     sidebarRunningRail: "Activity rail",
     sidebarSessionTime: "Session time",
+    sidebarScheduledTasks: "Show scheduled tasks",
     keepAwakeWhileRunning: "Keep computer awake",
     keepAwakeWhileRunningDesc: "Prevent idle system sleep while PI-Desktop is running. The display may turn off; manual sleep and closing the lid still work.",
     imageModel: "Image generation model",

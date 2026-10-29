@@ -873,6 +873,7 @@ export const tr = {
     sidebarRunningBadge: "Sayı rozeti",
     sidebarRunningRail: "Etkinlik şeridi",
     sidebarSessionTime: "Oturum saati",
+    sidebarScheduledTasks: "Zamanlanmış görevleri göster",
     keepAwakeWhileRunning: "Bilgisayarı uyanık tut",
     keepAwakeWhileRunningDesc: "PI-Desktop çalışırken boşta kalma nedeniyle uykuya geçmeyi önler. Ekran kapanabilir; elle uyutma ve kapağı kapatma etkilenmez.",
     "imageModel": "Görsel oluşturma modeli",

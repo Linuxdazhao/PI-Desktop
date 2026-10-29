@@ -19242,3 +19242,26 @@ their separate platform acceptance.
   event/result agreement, batch rejection and delegate restoration.
 - **Status**: Automated offline; native UI clicking and live providers are
   outside this fixture's coverage.
+
+
+### E2E-SCHEDULED-sidebar-task-shortcuts
+
+1. With `sidebarScheduledTasks` absent or false, verify the group is absent and
+   it performs no task-list reads. Enable Show scheduled tasks in General →
+   Sidebar and verify the boolean is saved through the normal settings path.
+2. Fail the first read, verify the visible retry action, then recover. Show one
+   shortcut per task ID, including paused tasks and tasks with duplicate titles.
+   Scheduled run transcripts remain absent from ordinary session rows.
+3. Fold the group, verify `aria-expanded`, `aria-hidden` and inert rows, then
+   remount and verify the fold is retained without changing project metadata.
+4. Open a paused task, switch to another task while Scheduled is open, and
+   revisit the same shortcut after a task-column selection. Verify the exact
+   detail and task-scoped history each time. Navigation never dispatches a run.
+5. Refresh after a task rename, creation or deletion. Existing running settings
+   gate the count and rail. Disable during an in-flight read; completing it
+   cannot restore the group. Re-read settings and verify the choice survives.
+
+Automated coverage: `node --test apps/desktop/test/scheduled-sidebar.test.mjs`
+and `pnpm test:e2e:scheduled-sidebar`. The latter uses real React, routing,
+settings controls and Sidebar in an isolated Electron window with synthetic IPC
+responses; it does not qualify Rust persistence, scheduling or model execution.

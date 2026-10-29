@@ -864,6 +864,7 @@ export const fr = {
     "sidebarRunningBadge": "Pastille de nombre",
     "sidebarRunningRail": "Rail d'activité",
     sidebarSessionTime: "Heure des sessions",
+    sidebarScheduledTasks: "Afficher les tâches planifiées",
     "keepAwakeWhileRunning": "Garder l'ordinateur éveillé",
     "keepAwakeWhileRunningDesc": "Empêche la veille due à l'inactivité pendant l'exécution de PI-Desktop. L'écran peut s'éteindre ; la veille manuelle et la fermeture du capot restent possibles.",
     "imageModel": "Modèle de génération d’images",

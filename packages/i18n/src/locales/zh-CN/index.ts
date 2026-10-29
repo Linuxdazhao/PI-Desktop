@@ -869,6 +869,7 @@ export const zhCN = {
     sidebarRunningBadge: "数量徽标",
     sidebarRunningRail: "活动流光",
     sidebarSessionTime: "会话时间",
+    sidebarScheduledTasks: "显示定时任务",
     keepAwakeWhileRunning: "保持电脑唤醒",
     keepAwakeWhileRunningDesc: "PI-Desktop 运行期间阻止电脑因空闲自动休眠。屏幕仍可能关闭；手动睡眠和合盖休眠不受影响。",
     imageModel: "生图模型",

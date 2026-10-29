@@ -1,4 +1,5 @@
 import { IconClock } from "./icons";
+import { ScheduledSidebarGroup } from "../features/scheduled/ScheduledSidebarGroup";
 import { RemoteProjectGroups } from "./remote/RemoteProjectGroups";
 import { groupRemoteProjectSessions } from "../lib/remote-project-catalog";
 import { isRemoteSession, sessionAllows } from "../lib/remote-session-safety";
@@ -2732,6 +2733,7 @@ export function Sidebar({
           onDragLeave={onProjectsAreaDragLeave}
           onDrop={onProjectsAreaDrop}
         >
+          {settings?.sidebarScheduledTasks === true && <ScheduledSidebarGroup />}
           {projectEntries.length > 0 ? projectEntries.map(renderProjectGroup) : (
             <section className="sidebar-session-group" aria-labelledby="sidebar-project-group-label">
               <div className="sidebar-session-group-header">
