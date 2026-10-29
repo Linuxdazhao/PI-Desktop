@@ -89,12 +89,14 @@ function object(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-export function loadScheduledSidebarCollapsed(): boolean {
-  return read(SCHEDULED_COLLAPSED_KEY) === true;
+export function loadScheduledSidebarCollapsed(projectPath: string): boolean {
+  const path = normalizeProjectPath(projectPath);
+  return !!path && read(`${SCHEDULED_COLLAPSED_KEY}:${path}`) === true;
 }
 
-export function saveScheduledSidebarCollapsed(collapsed: boolean): void {
-  write(SCHEDULED_COLLAPSED_KEY, collapsed);
+export function saveScheduledSidebarCollapsed(projectPath: string, collapsed: boolean): void {
+  const path = normalizeProjectPath(projectPath);
+  if (path) write(`${SCHEDULED_COLLAPSED_KEY}:${path}`, collapsed);
 }
 function bool(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;

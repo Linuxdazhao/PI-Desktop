@@ -29,9 +29,12 @@ await i18n.use(initReactI18next).init({ lng: "en", fallbackLng: "en", keySeparat
 document.documentElement.dataset.theme = "light";
 document.documentElement.dataset.platform = "win32";
 const timestamp = "2026-10-29T00:00:00Z";
-const task = (id, title, enabled = true) => ({ id, title, enabled, prompt: "Read the fixture project.",
+const task = (id, title, enabled = true, workspacePath = "/fixture") => ({ id, title, enabled,
+  ...(workspacePath ? { workspacePath } : {}), prompt: "Read the fixture project.",
   cadence: "manual", mode: "agent", createdAt: timestamp, updatedAt: timestamp, permissionMode: "ask" });
-let tasks = [task("a", "Nightly checks"), task("b", "Review PRs", false), task("c", "Nightly checks")];
+let tasks = [task("a", "Nightly checks"), task("b", "Review PRs", false), task("c", "Nightly checks"),
+  task("e", "Other task", true, "/other/"), task("unbound", "Unassigned task", true, ""),
+  task("closed", "Closed project task", true, "/closed")];
 const runs = [{ id: "run-a", taskId: "a", sessionId: "automation-session", status: "running",
   startedAt: timestamp, endedAt: null, errorCode: null }];
 let storedSettings = { theme: "light", language: "en", defaultMode: "agent", sidebarRunningIndicators: true };
@@ -81,8 +84,10 @@ window.piDesktop = { platform: "win32", on() { return () => {}; }, async invoke(
 } };
 useAppStore.setState({ settings: storedSettings, settingsTab: "general", page: "chat", providers: [],
   sessions: [{ id: "automation-session", title: "Hidden automation transcript", scheduledRun: true,
-    projectPath: "/fixture", createdAt: timestamp, updatedAt: timestamp }],
-  openProjectPaths: ["/fixture"], openProjects: [{ path: "/fixture", name: "Fixture project" }],
+    projectPath: "/fixture", createdAt: timestamp, updatedAt: timestamp },
+    { id: "ordinary", title: "Ordinary conversation", projectPath: "/fixture", createdAt: timestamp, updatedAt: timestamp }],
+  openProjectPaths: ["/fixture", "/other", "/empty"], openProjects: [
+    { path: "/fixture", name: "Fixture project" }, { path: "/other", name: "Other project" }, { path: "/empty", name: "Empty project" }],
   activeProjectPath: "/fixture", runningSessions: { "automation-session": true } });
 let remountSidebar;
 function Surface() {
@@ -108,7 +113,12 @@ async function until(predicate, message) {
   while (!predicate()) { check(performance.now() < deadline, message); await frame(); }
   return predicate();
 }
-const group = () => document.querySelector('[data-sidebar-scheduled-group="tasks"]');
+const group = (path = "/fixture") => document.querySelector('[data-sidebar-scheduled-group="' + path + '"]');
+const anyGroup = () => document.querySelector('[data-sidebar-scheduled-group]');
+const folderToggle = () => group()?.querySelector('.sidebar-scheduled-folder-toggle');
+const folderBody = () => group()?.querySelector('[data-sidebar-scheduled-body]');
+const readStatus = () => document.querySelector('.sidebar-body [role="alert"], [data-sidebar-scheduled-status]');
+const projectGroup = (path) => document.querySelector('[data-sidebar-project-group="' + path + '"]');
 const row = (id) => document.querySelector('[data-sidebar-scheduled-task="' + id + '"] button');
 const toggle = () => [...document.querySelectorAll('button[role="switch"]')]
   .find((node) => node.getAttribute("aria-label") === "Show scheduled tasks");
@@ -133,11 +143,11 @@ const open = async (id, title) => {
 
 window.scheduledSidebarProbe = async () => {
   await settle();
-  check(!group(), "Default-off sidebar has a task group");
+  check(!anyGroup(), "Default-off sidebar has a task group");
   check(!calls.some((call) => call.channel === IPC.invoke.scheduledList), "Disabled group fetched tasks");
   check(document.querySelector('.sidebar-search-input').placeholder === "Search projects and chats", "Disabled search advertises tasks");
   await search("Nightly");
-  check(!group() && noResults(), "Disabled tasks participated in search");
+  check(!anyGroup() && noResults(), "Disabled tasks participated in search");
   check(readCount() === 0, "Search fetched disabled tasks");
   await search("Hidden automation transcript");
   check(!document.querySelector('[data-sidebar-session-row="automation-session"]'), "Search exposed a run transcript");
@@ -149,42 +159,68 @@ window.scheduledSidebarProbe = async () => {
   click(toggle());
   await until(() => useAppStore.getState().settings.sidebarScheduledTasks === true, "Setting did not enable");
   click(document.querySelector('[data-nav="back-to-app"]'));
-  await until(() => group()?.querySelector('[role="alert"]'), "Loading failure is not visible");
+  await until(() => readStatus()?.getAttribute("role") === "alert", "Loading failure is not visible");
+  check(!anyGroup(), "A task read error created an unverified task folder");
   await search("Review");
-  check(group()?.querySelector('[role="alert"]') && !noResults(), "Search hid the task read error");
+  check(readStatus()?.getAttribute("role") === "alert" && !noResults(), "Search hid the task read error");
   check(storedSettings.sidebarScheduledTasks === true, "Enabled preference was not persisted");
   failList = false;
-  click(group().querySelector('[role="alert"] button'));
+  click(readStatus().querySelector('button'));
   await until(() => row("b"), "Retry did not load tasks");
   await search("");
   check(document.querySelector('.sidebar-search-input').placeholder === "Search projects, chats and tasks", "Enabled search omits tasks");
   check(group().querySelectorAll('[data-sidebar-scheduled-task]').length === 3, "Task identity or count changed");
+  check(group().closest('[data-sidebar-project-group]') === projectGroup("/fixture"), "Task folder is not inside its project");
+  check(row("e")?.closest('[data-sidebar-project-group]') === projectGroup("/other"), "Task bound to another project appeared in the wrong folder");
+  check(!group("/empty"), "An empty project has a task folder");
+  check(!row("unbound") && !row("closed"), "Unbound or closed-project tasks entered the sidebar");
+  check(!document.querySelector('[data-sidebar-session-row="ordinary"]').closest('[data-sidebar-scheduled-group]'), "Ordinary conversations moved into a task folder");
+  await search("Unassigned task");
+  check(!anyGroup() && noResults(), "Unbound task names participated in sidebar search");
+  await search("Closed project task");
+  check(!anyGroup() && noResults(), "Search resurrected a closed project");
+  await search("");
+  click(document.querySelector('[data-nav="scheduled"]'));
+  await until(() => [...document.querySelectorAll('.scheduled-rail-list button')]
+    .find((node) => node.textContent.includes("Unassigned task")), "Unbound task disappeared from management");
+  click([...document.querySelectorAll('.scheduled-rail-list button')].find((node) => node.textContent.includes("Unassigned task")));
+  await until(() => document.getElementById("scheduled-detail-title")?.textContent === "Unassigned task", "Management could not open an unbound task");
+  check(!row("unbound"), "Opening an unbound task added a sidebar shortcut");
+  flushSync(() => useAppStore.getState().setPage("chat"));
+  await settle();
   check(row("b").textContent.includes("Disabled"), "Paused task shortcut missing");
   check(!document.querySelector('[data-sidebar-session-row="automation-session"]'), "Run transcript leaked into conversations");
   check(group().querySelector('.project-run-badge.running'), "Running task count missing");
 
-  click(document.getElementById("sidebar-scheduled-label"));
-  check(document.getElementById("sidebar-scheduled-tasks").inert, "Collapsed tasks remain keyboard reachable");
+  click(folderToggle());
+  check(folderBody().inert, "Collapsed tasks remain keyboard reachable");
   flushSync(remountSidebar);
   await until(() => row("b"), "Remounted group did not load");
-  check(document.getElementById("sidebar-scheduled-label").getAttribute("aria-expanded") === "false", "Collapse was not persisted");
+  check(folderToggle().getAttribute("aria-expanded") === "false", "Collapse was not persisted");
+  check(group("/other").querySelector('.sidebar-scheduled-folder-toggle').getAttribute("aria-expanded") === "true", "Task folders share collapse state across projects");
+  flushSync(() => useAppStore.setState({ projectMeta: { "/fixture": { collapsed: true } } }));
+  check(projectGroup("/fixture").querySelector(':scope > .sidebar-session-group-header .project-run-badge.running'), "Folding a project hid its scheduled activity");
   const readsBeforeSearch = readCount();
   await search("  rEvIeW  ");
   check(row("b") && !row("a") && !row("c"), "Task search did not match only the task name, ignoring case and whitespace");
   check(!noResults(), "Matching tasks also showed No results");
-  check(!document.getElementById("sidebar-scheduled-tasks").inert, "Search did not reveal folded matches");
-  click(document.getElementById("sidebar-scheduled-label"));
-  check(!document.getElementById("sidebar-scheduled-tasks").inert, "Search matches could be folded away");
-  check(localStorage.getItem("pi.desktop.sidebarScheduledTasksCollapsed") === "true", "Search changed saved folding");
+  check(!folderBody().inert, "Search did not reveal folded matches");
+  check(projectGroup("/fixture").querySelector('[data-action="toggle-project-collapse"]').getAttribute("aria-expanded") === "true", "Task search did not reveal its parent project");
+  click(projectGroup("/fixture").querySelector('[data-action="toggle-project-collapse"]'));
+  click(folderToggle());
+  check(!folderBody().inert, "Search matches could be folded away");
+  check(localStorage.getItem("pi.desktop.sidebarScheduledTasksCollapsed:/fixture") === "true", "Search changed saved folding");
   click(document.querySelector('.sidebar-search-clear'));
   await settle();
-  check(document.getElementById("sidebar-scheduled-tasks").inert, "Clearing search did not restore folding");
+  check(folderBody().inert, "Clearing search did not restore folding");
+  check(projectGroup("/fixture").querySelector('[data-action="toggle-project-collapse"]').getAttribute("aria-expanded") === "false", "Clearing search did not restore the parent fold");
+  check(useAppStore.getState().projectMeta["/fixture"].collapsed === true, "Search overwrote the saved project fold");
   await search("nightly");
   check(row("a") && row("c") && !row("b"), "Search lost duplicate-name tasks");
   await search("Fixture project");
-  check(!group() && !noResults(), "Project matches did not exclude unrelated tasks");
+  check(!anyGroup() && !noResults(), "Project matches did not exclude unrelated tasks");
   await search("Read the fixture project.");
-  check(!group() && noResults(), "Task prompts participated in name search");
+  check(!anyGroup() && noResults(), "Task prompts participated in name search");
   check(readCount() === readsBeforeSearch, "Typing in search fetched tasks again");
   await search("");
   const originalSessions = useAppStore.getState().sessions;
@@ -213,8 +249,8 @@ window.scheduledSidebarProbe = async () => {
   await search("");
   check([...document.querySelectorAll('[data-sidebar-session-row].selected')].map((node) => node.dataset.sidebarSessionRow).sort().join() === "first,last",
     "Search range selection included a hidden session");
-  flushSync(() => useAppStore.setState({ sessions: originalSessions, sessionMeta: {} }));
-  click(document.getElementById("sidebar-scheduled-label"));
+  flushSync(() => useAppStore.setState({ sessions: originalSessions, sessionMeta: {}, projectMeta: {} }));
+  click(folderToggle());
   await open("b", "Review PRs");
   await open("a", "Nightly checks");
   await open("b", "Review PRs");
@@ -238,18 +274,27 @@ window.scheduledSidebarProbe = async () => {
   window.dispatchEvent(new Event("focus"));
   await until(() => pendingLists.length === 1, "Older read did not start");
   const finishOlderRead = pendingLists.shift();
-  tasks = [task("b", "Renamed review", false), task("d", "New task")];
+  tasks = [task("b", "Renamed review", false, "/other"), task("d", "New task")];
   window.dispatchEvent(new Event("focus"));
   await until(() => pendingLists.length === 1, "Newer read did not start");
   pendingLists.shift()();
   await until(() => row("d") && row("b")?.textContent.includes("Renamed review"), "Task edits were not refreshed");
+  check(row("b").closest('[data-sidebar-project-group]') === projectGroup("/other"), "Retargeted task did not move to its new project");
   finishOlderRead();
   await settle();
   check(!row("a") && !row("c"), "Deleted tasks remain in sidebar");
   deferList = false;
-  tasks = [task("b", "Polled review", false), task("d", "New task")];
+  tasks = [task("b", "Polled review", false, "/other"), task("d", "New task")];
   for (const poll of [...polls.values()]) poll();
   await until(() => row("b")?.textContent.includes("Polled review"), "Ten-second poll did not refresh tasks");
+  const populatedTasks = tasks;
+  tasks = [];
+  for (const poll of [...polls.values()]) poll();
+  await until(() => !anyGroup(), "Removing the last tasks left empty folders");
+  check(useAppStore.getState().settings.sidebarScheduledTasks === true, "Empty-folder checks disabled the setting");
+  tasks = populatedTasks;
+  for (const poll of [...polls.values()]) poll();
+  await until(() => row("b"), "New tasks did not restore their project folder");
 
   deferList = true;
   window.dispatchEvent(new Event("focus"));
@@ -261,26 +306,26 @@ window.scheduledSidebarProbe = async () => {
   deferList = false;
   pendingLists.shift()();
   await settle();
-  check(!group(), "An obsolete read restored the disabled group");
+  check(!anyGroup(), "An obsolete read restored the disabled group");
   check(storedSettings.sidebarScheduledTasks === false, "Disabled preference was not persisted");
   flushSync(() => useAppStore.setState({ settings: null }));
   const reloaded = await api.getSettings();
   flushSync(() => useAppStore.setState({ settings: reloaded }));
   await settle();
-  check(!group() && toggle()?.getAttribute("aria-checked") === "false", "Reload did not preserve disabled choice");
+  check(!anyGroup() && toggle()?.getAttribute("aria-checked") === "false", "Reload did not preserve disabled choice");
   click(document.querySelector('[data-nav="back-to-app"]'));
   await settle();
-  check(!group(), "Disabled group reappeared after leaving settings");
+  check(!anyGroup(), "Disabled group reappeared after leaving settings");
   await search("Polled review");
-  check(!group() && noResults(), "Disabled tasks remained searchable after settings reload");
+  check(!anyGroup() && noResults(), "Disabled tasks remained searchable after settings reload");
   deferList = true;
   flushSync(() => useAppStore.setState({ settings: { ...reloaded, sidebarScheduledTasks: true } }));
   await until(() => pendingLists.length === 1, "Enabling a mounted sidebar did not start a read");
-  check(group()?.querySelector('[role="status"]') && !noResults(), "Search replaced loading with No results");
+  check(!anyGroup() && readStatus()?.getAttribute("role") === "status" && !noResults(), "Loading created a task folder or No results");
   flushSync(() => useAppStore.setState({ settings: reloaded }));
   pendingLists.shift()();
   await settle();
-  check(!group() && noResults(), "An in-flight read restored disabled search results");
+  check(!anyGroup() && noResults(), "An in-flight read restored disabled search results");
   deferList = false;
   const readsAfterDisable = readCount();
   for (const poll of [...polls.values()]) poll();
@@ -294,7 +339,8 @@ window.scheduledSidebarProbe = async () => {
 };
 
 window.scheduledSidebarPreview = async () => {
-  tasks = [task("a", "Nightly checks"), task("b", "Review PRs", false)];
+  tasks = [task("a", "Nightly checks"), task("b", "Review PRs", false),
+    task("e", "Dependency checks", true, "/other"), task("unbound", "Unassigned task", true, "")];
   useAppStore.setState({ settings: { ...storedSettings, sidebarScheduledTasks: true,
     sidebarRunningIndicators: true }, page: "scheduled" });
   view = createRoot(document.getElementById("root"));

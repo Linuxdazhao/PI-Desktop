@@ -1,6 +1,8 @@
 import { IconClock } from "./icons";
 import { ScheduledSidebarGroup } from "../features/scheduled/ScheduledSidebarGroup";
 import { useSidebarScheduledTasks } from "../features/scheduled/use-sidebar-scheduled-tasks";
+import { groupScheduledSidebarTasks, scheduledSidebarRunSummary } from "../features/scheduled/sidebar-scheduled-tasks";
+import { latestRunByTask } from "../features/scheduled/scheduled-runs";
 import { RemoteProjectGroups } from "./remote/RemoteProjectGroups";
 import { groupRemoteProjectSessions, type RemoteProjectGroup } from "../lib/remote-project-catalog";
 import { isRemoteSession, sessionAllows } from "../lib/remote-session-safety";
@@ -17,7 +19,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { Input, TooltipButton, cx } from "./ui";
+import { Button, Input, TooltipButton, cx } from "./ui";
 
 import { portalToBody } from "../lib/portal-visibility";
 import {
@@ -1074,6 +1076,9 @@ export function Sidebar({
     [pinnedSessions, hasSearch, sessionMatchesSearch],
   );
 
+  const scheduledTasksByProject = useMemo(() => groupScheduledSidebarTasks(scheduledTasks.tasks), [scheduledTasks.tasks]);
+  const latestScheduledRuns = useMemo(() => latestRunByTask(scheduledTasks.runs), [scheduledTasks.runs]);
+
   const displayProjectEntries = useMemo(() => {
     if (!hasSearch) return projectEntries;
     return projectEntries
@@ -1082,11 +1087,11 @@ export function Sidebar({
           return { ...entry, meta: { ...entry.meta, collapsed: false } };
         }
         const matchingSessions = entry.sessions.filter(sessionMatchesSearch);
-        if (matchingSessions.length === 0) return null;
+        if (matchingSessions.length === 0 && !scheduledTasksByProject.has(entry.key)) return null;
         return { ...entry, sessions: matchingSessions, meta: { ...entry.meta, collapsed: false } };
       })
       .filter((entry): entry is ProjectEntry => entry !== null);
-  }, [projectEntries, hasSearch, projectMatchesSearch, sessionMatchesSearch]);
+  }, [projectEntries, hasSearch, projectMatchesSearch, sessionMatchesSearch, scheduledTasksByProject]);
 
   const displayTemporarySessionHistory = useMemo(
     () => hasSearch ? temporarySessionHistory.filter(sessionMatchesSearch) : temporarySessionHistory,
@@ -1108,7 +1113,7 @@ export function Sidebar({
   const showNoSearchResults = hasSearch
     && displayPinnedSessions.length === 0 && displayProjectEntries.length === 0
     && displayTemporarySessionHistory.length === 0 && displayRemoteProjectGroups.length === 0
-    && (!scheduledTasksEnabled || (scheduledTasks.loaded && !scheduledTasks.error && scheduledTasks.tasks.length === 0));
+    && (!scheduledTasksEnabled || (scheduledTasks.loaded && !scheduledTasks.error));
 
   // Range selection follows the filtered order, excluding hidden search results.
   const flatSessionOrder = useMemo(() => {
@@ -2323,6 +2328,7 @@ export function Sidebar({
     const collapsedProject = entry.meta.collapsed ?? projectCollapsed[entry.key] ?? false;
     const projectId = projectDomId(entry.key);
     const isMenuOpen = projectMenu === entry.key;
+    const projectTasks = scheduledTasksByProject.get(entry.key) ?? [];
 
     // Show the initial page by default; the remaining sessions stay folded
     // behind the Load more affordance.
@@ -2340,6 +2346,10 @@ export function Sidebar({
       runningSessions,
       pendingPermissions,
     );
+    const taskRunSummary = scheduledSidebarRunSummary(projectTasks, latestScheduledRuns, pendingPermissions);
+    runSummary.running += taskRunSummary.running;
+    runSummary.waiting += taskRunSummary.waiting;
+    runSummary.total += taskRunSummary.total;
     const runIsLive = projectRunSummaryIsLive(runSummary);
     const showRunBadge = runningAffordances.badge && runIsLive;
     const showRunRail = runningAffordances.rail && runIsLive;
@@ -2397,6 +2407,7 @@ export function Sidebar({
             // control still activates and toggles the group.
             const target = event.target as HTMLElement | null;
             if (target?.closest("button, [data-action]")) return;
+            if (hasSearch) return;
             void (async () => {
               if (!entry.active && !(await selectProject(entry.path))) return;
               setCollapsed(entry.path, !collapsedProject);
@@ -2429,14 +2440,16 @@ export function Sidebar({
             ariaLabel={entry.name}
             aria-describedby={`${projectId}-path-description`}
             aria-expanded={!collapsedProject}
+            aria-disabled={hasSearch}
             aria-controls={`${projectId}-sessions`}
             aria-keyshortcuts="ArrowUp ArrowDown"
             aria-grabbed={draggingProjectKey === entry.key}
             data-action="toggle-project-collapse"
             onDragStart={(event) => event.preventDefault()}
-            onPointerDown={(event) => beginProjectReorderPress(event, entry.key)}
-            onKeyDown={(event) => moveProjectWithKeyboard(event, entry.key)}
+            onPointerDown={(event) => { if (!hasSearch) beginProjectReorderPress(event, entry.key); }}
+            onKeyDown={(event) => { if (!hasSearch) moveProjectWithKeyboard(event, entry.key); }}
             onClick={() => {
+              if (hasSearch) return;
               if (suppressProjectTitleClickRef.current) {
                 suppressProjectTitleClickRef.current = false;
                 return;
@@ -2511,8 +2524,12 @@ export function Sidebar({
         >
           <div className="sidebar-session-group-clip">
             <div className="sidebar-session-group-list">
-              {entry.sessions.length > 0 ? renderProjectSessions(visibleSessions) : (
+              {entry.sessions.length > 0 ? renderProjectSessions(visibleSessions) : !hasSearch && projectTasks.length === 0 ? (
                 <div className="sidebar-session-empty">{t("nav.noProjectSessions")}</div>
+              ) : null}
+              {scheduledTasksEnabled && projectTasks.length > 0 && (
+                <ScheduledSidebarGroup tasks={projectTasks} latestRuns={latestScheduledRuns}
+                  searching={hasSearch} projectPath={entry.key} id={`${projectId}-scheduled`} />
               )}
             </div>
           </div>
@@ -2813,7 +2830,13 @@ export function Sidebar({
           onDragLeave={onProjectsAreaDragLeave}
           onDrop={onProjectsAreaDrop}
         >
-          {scheduledTasksEnabled && <ScheduledSidebarGroup {...scheduledTasks} />}
+          {scheduledTasksEnabled && (scheduledTasks.error || !scheduledTasks.loaded) && (
+            <div className="sidebar-session-empty sidebar-scheduled-status" data-sidebar-scheduled-status="tasks"
+              role={scheduledTasks.error ? "alert" : "status"}>
+              <span>{scheduledTasks.error || t("common.loading")}</span>
+              {scheduledTasks.error && <Button size="sm" variant="ghost" onClick={() => void scheduledTasks.refresh()}>{t("scheduled.retry")}</Button>}
+            </div>
+          )}
           {displayProjectEntries.length > 0 ? displayProjectEntries.map(renderProjectGroup) : !hasSearch ? (
             <section className="sidebar-session-group" aria-labelledby="sidebar-project-group-label">
               <div className="sidebar-session-group-header">

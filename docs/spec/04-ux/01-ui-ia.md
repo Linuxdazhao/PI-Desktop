@@ -43,15 +43,18 @@ destination, chat as the home surface, tools and permissions inline.
   Collapsible to an icon rail (Cmd/Ctrl+B). Its expanded column is user-resizable
   from 240px to 520px (default 275px); dragging below 160px collapses it.
 - **Scheduled shortcuts**: Settings → General → Sidebar offers **Show scheduled
-  tasks** (`sidebarScheduledTasks`), off when absent. When enabled, a separate
-  Scheduled group precedes project groups in their shared scrolling area. Each
-  task has one shortcut to its existing detail and run history, including paused
-  tasks; runs do not become ordinary conversation rows. Folding is saved under
-  a separate renderer preference key. The footer clock remains available.
-  Sidebar search includes task names only while this preference is on, with
-  the same case-insensitive substring matching as project and chat names.
-  Matching tasks temporarily expand the group; clearing search restores its
-  saved fold state.
+  tasks** (`sidebarScheduledTasks`), off when absent. A project shows a Scheduled
+  subfolder below its ordinary conversation rows only while the setting is on
+  and it has explicitly bound tasks. There is no empty or global task folder.
+  Each task has one shortcut to its existing detail and run history, including
+  paused tasks; runs do not become ordinary conversation rows. Folder folding
+  is remembered independently per project, separately from the project fold.
+  Unbound tasks and tasks whose projects are not retained in the sidebar remain
+  accessible from the footer's Scheduled management page.
+  Sidebar search includes bound task names only while this preference is on,
+  using the same case-insensitive substring matching as other sidebar entries.
+  Matches temporarily expand both their project and task folder; clearing
+  search restores both saved fold states.
 - **Product identity**: runtime shell copy uses `PI-Desktop`; the home hero and
   sidebar reuse the derived `src/assets/brand/logo-*.png` marks, while composer prompt
   rows have no leading brand icon and session-creation controls use a dedicated
