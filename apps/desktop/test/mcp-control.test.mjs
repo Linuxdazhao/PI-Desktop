@@ -50,6 +50,38 @@ test("the plugin and MCP paths share desktop operation validation", async () => 
   ]);
 });
 
+test("plugin prompt submission only dispatches confirmed text to the native queue", async () => {
+  const calls = [];
+  const controller = createMcpControlController({
+    channels: { agentQueuePush: "native-queue-push" },
+    invoke: async (channel, [input]) => {
+      calls.push({ channel, ...input });
+      return { accepted: true, queued: true };
+    },
+  });
+  const operation = controller.operations.find(({ id }) => id === "agent/submit");
+  assert.equal(operation.risk, "dangerous");
+  assert.equal(operation.pluginOnly, true);
+  assert.equal(createMcpControlOperations({ agentQueuePush: "native-queue-push" }).length, 0);
+  const args = [{ sessionId: "s1", content: "reviewed text", requestId: "retry-id",
+    modelId: "injected-model", interrupt: true, idempotencyKey: "injected-key" }];
+  const plugin = { operation: operation.id, args, source: "plugin", pluginContext: { pluginId: "test" } };
+  await assert.rejects(controller.invoke(plugin), { code: "CONFIRMATION_REQUIRED" });
+  await assert.rejects(controller.invoke({ ...plugin, source: "mcp", confirm: true }), { code: "PERMISSION_DENIED" });
+  await assert.rejects(controller.invoke({ ...plugin, confirm: true, args: [{ ...args[0], content: "" }] }),
+    { code: "INVALID_PARAMS" });
+  assert.deepEqual(calls, []);
+  const confirmed = { ...plugin, confirm: true };
+  assert.deepEqual(await controller.invoke(confirmed), { accepted: true, queued: true });
+  assert.deepEqual(calls[0], { channel: "native-queue-push", sessionId: "s1", content: "reviewed text",
+    idempotencyKey: calls[0].idempotencyKey });
+  assert.match(calls[0].idempotencyKey, /^plugin-submit:[a-f0-9]{64}$/);
+  await controller.invoke(confirmed);
+  assert.equal(calls[1].idempotencyKey, calls[0].idempotencyKey);
+  await controller.invoke({ ...confirmed, pluginContext: { pluginId: "other" } });
+  assert.notEqual(calls[2].idempotencyKey, calls[0].idempotencyKey);
+});
+
 test("agent/pendingInteractive is a read operation that exposes the requestIds the resolve operations need", async () => {
   const calls = [];
   const pending = {

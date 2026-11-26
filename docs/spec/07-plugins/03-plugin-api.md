@@ -1348,6 +1348,15 @@ open an existing durable session. Plugin-originated `session/create` and
 `agent/prompt` calls refresh session state without changing the active
 renderer session; `session/open` is explicit navigation.
 
+The plugin-only `agent/submit({ sessionId, content, requestId })` operation
+requires `desktop.control`, `confirm: true` and a fresh native consent decision.
+It accepts nonempty text up to 64 KiB for an existing local Desktop session.
+The request ID is scoped to the plugin and session. Desktop starts an idle
+session or appends to the native queue while work is already running. It
+returns the native queue receipt and leaves the Composer draft alone. The
+target must be in the plugin's activation scope. Show the entire draft in the
+plugin before asking for the native decision, which displays an argument preview.
+
 The catalog also includes the read `agent/pendingInteractive({ sessionId })`
 (`sessionId` is required), which returns `{ asks, permissions }`: the session's
 pending ask-tool and tool permission requests, the same payload the renderer
@@ -1357,13 +1366,11 @@ need. Like every shared catalog operation, it is also reachable through the
 local MCP control plane.
 
 This is the first-party plugin gateway to the reviewed operation catalog shared
-with the opt-in local MCP control plane (ADR 0203 / D370). The two catalogs
-differ only for operations marked plugin-only: the six
-`session/collaboration/*` operations are callable through this gateway but are
-deliberately absent from the MCP-visible catalog (`tools/list`,
-`pi_control_describe`, and the `pi_desktop_invoke` enum), because they require
-an authenticated plugin invocation context and no renderer mutation channel
-exists for them. The returned catalog omits Electron channel names and the
+with the opt-in local MCP control plane (ADR 0203 / D370). The six
+`session/collaboration/*` operations and `agent/submit` require an authenticated
+plugin context. The external MCP catalog excludes them from `tools/list`,
+`pi_control_describe`, and the `pi_desktop_invoke` enum. The returned plugin
+catalog omits Electron channel names and the
 plugin never receives the MCP bearer token. Invocation reuses the controller,
 IPC handler, lifecycle checks, completion event, and audit boundary; a plugin
 cannot reach arbitrary Electron IPC.

@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { isIP } from "node:net";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { SESSION_COLLABORATION_OPERATIONS } from "./session-collaboration-control";
+import { pluginControlArgs, pluginControlOperations } from "./plugin-control-operations";
 import { markAutomationRequest } from "./runtime/user-message-provenance";
 
 /** A small JSON Schema subset used by MCP's tools/list response. */
@@ -26,7 +26,7 @@ export type McpControlOperation = {
   risk: McpControlRisk;
   argumentShape: string[] | string;
   /**
-   * Operation requires an authenticated first-party plugin context, so it is
+   * Operation requires an authenticated plugin context, so it is
    * excluded from the external MCP surface (tools/list, pi_control_describe and
    * the pi_desktop_invoke enum) while staying callable by plugins.
    */
@@ -774,8 +774,7 @@ export function createMcpControlController(options: {
     source?: McpControlInvocationSource,
   ) => void | Promise<void>;
 }): McpControlController {
-  const operations = [...createMcpControlOperations(options.channels),
-    ...(options.invokeSessionCollaboration ? SESSION_COLLABORATION_OPERATIONS : [])];
+  const operations = [...createMcpControlOperations(options.channels), ...pluginControlOperations(options.channels, !!options.invokeSessionCollaboration)];
   const operationById = new Map(operations.map((operation) => [operation.id, operation]));
   return {
     operations,
@@ -801,7 +800,7 @@ export function createMcpControlController(options: {
           code: "CONFIRMATION_REQUIRED",
         });
       }
-      const sanitized = args.map((value) => stripSecretMaterial(value)) as unknown[];
+      const sanitized = pluginControlArgs(input, args.map((value) => stripSecretMaterial(value)));
       if (operation.id === "agent/prompt") markAutomationRequest(sanitized[0]);
       const result = operation.channel === "internal:session-collaboration"
         ? await options.invokeSessionCollaboration!({ ...input, args: sanitized })

@@ -4034,3 +4034,14 @@ Electron and real-host lifecycle verification remain manual/CI coverage.
 ## E2E-ISSUE-2184
 
 Load the actual bundled plugin in an isolated workspace. Create a file and Unicode directory, rename and move the file; verify disk entries and response metadata. Invalid create/rename names fail before writing, and duplicate destinations are refused. Coverage: apps/desktop/test/file-manager-mutations.test.mjs. Existing Electron directory-location path also passes.
+
+## E2E-PLUGIN-confirmed-native-submit
+
+Load a development plugin with `desktop.control` in a fresh Desktop profile.
+Prepare a proposal from a panel action and from a plugin tool result. Deny
+native consent for each and verify that neither the transcript nor the queue
+changes. Allow once with an idle target and verify that Desktop starts the
+submitted prompt. Allow once while the target is streaming and verify that the
+prompt appears in the native queue, that the active turn completes normally,
+and that the next model request receives the queued text. In both cases leave
+an unsent Composer draft and verify it is intact after delivery.

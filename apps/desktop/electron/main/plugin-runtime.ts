@@ -600,8 +600,8 @@ export type PluginOAuthProvider = {
 /** Host APIs a plugin process may reach. Anything else does not exist (spec 04 §2). */
 // #2377: desktop.control session reads that reveal which sessions exist are
 // activation-scope boundaries, like `session.getActive` and the #1754 event
-// fan-out. `session/list` is filtered to in-scope sessions; the targeted reads
-// are refused when the target session belongs to an out-of-scope project.
+// fan-out. `session/list` is filtered to in-scope sessions; targeted operations
+// are refused when the target belongs to an out-of-scope project.
 const SESSION_LIST_DESKTOP_OPERATION = "session/list";
 const SESSION_READ_DESKTOP_OPERATIONS = new Set([
   SESSION_LIST_DESKTOP_OPERATION,
@@ -5117,7 +5117,7 @@ export class PluginRuntime {
     args: readonly unknown[],
   ): Promise<void> {
     if (operation === SESSION_LIST_DESKTOP_OPERATION) return;
-    if (!SESSION_READ_DESKTOP_OPERATIONS.has(operation)) return;
+    if (!SESSION_READ_DESKTOP_OPERATIONS.has(operation) && operation !== "agent/submit") return;
     const activeInProject = this.services.pluginActiveInProject;
     if (!activeInProject) return;
     const sessionId = desktopSessionTargetId(args);
@@ -6077,6 +6077,13 @@ export class PluginRuntime {
                   ? `user declined ${operation}`
                   : `${operation} needs a user confirmation this host cannot show`,
               );
+            }
+            if (operation === "agent/submit") {
+              await this.assertDesktopSessionScope(pluginId, operation, args);
+              if (this.loaded.get(pluginId) !== loaded || loaded.disposing) {
+                throw apiError("PERMISSION_DENIED", "Plugin changed while approval was pending");
+              }
+              this.assertPermission(loaded, "desktop.control");
             }
           }
           try {
